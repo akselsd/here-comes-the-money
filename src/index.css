@@ -1,0 +1,76 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  min-height: 100svh;
+  background: radial-gradient(ellipse at top, #1f1147 0%, #0a0612 60%, #050309 100%);
+  color: #f8f4ff;
+  font-family: 'Bricolage Grotesque', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+@keyframes money-pulse {
+  0%,
+  100% {
+    transform: scale(0.95);
+  }
+  50% {
+    transform: scale(1.12);
+  }
+}
+
+.animate-money {
+  animation:
+    shimmer 2.5s linear infinite,
+    money-pulse 1.4s ease-in-out infinite;
+  transform-origin: center;
+}
+
+@keyframes money-fall {
+  0% {
+    transform: translateY(-10vh) rotate(var(--rot-start, 0deg));
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(110vh) rotate(var(--rot-end, 360deg));
+    opacity: 0;
+  }
+}
+
+.counter-container {
+  container-type: inline-size;
+}
+
+@layer utilities {
+  .text-gradient-gold {
+    background-image: linear-gradient(90deg, #ffd166 0%, #fff5b8 25%, #ffd166 50%, #fff5b8 75%, #ffd166 100%);
+    background-size: 200% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .text-gradient-pink {
+    background-image: linear-gradient(90deg, #ff2e9a 0%, #ffb3da 25%, #ff2e9a 50%, #ffb3da 75%, #ff2e9a 100%);
+    background-size: 200% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}
