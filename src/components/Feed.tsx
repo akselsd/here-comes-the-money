@@ -1,8 +1,6 @@
-import { useCallback, useMemo } from 'react'
-import confetti from 'canvas-confetti'
+import { useMemo } from 'react'
 import { COPY } from '../data/copy'
 import { ALL_REWARDS, rewardKey } from '../data/rewards'
-import { useLocalStorage } from '../hooks/useLocalStorage'
 import type {
   BuysReward,
   ClipReward,
@@ -27,29 +25,14 @@ const fmtNOKDecimals = new Intl.NumberFormat('nb-NO', {
 
 type Props = {
   earnings: number
+  revealedSet: Set<string>
+  onReveal: (key: string) => void
 }
 
-export function Feed({ earnings }: Props) {
+export function Feed({ earnings, revealedSet, onReveal }: Props) {
   const unlocked = useMemo(
     () => ALL_REWARDS.filter((r) => r.thresholdNOK <= earnings),
     [earnings],
-  )
-
-  const [revealed, setRevealed] = useLocalStorage<string[]>('hctm:revealed', [])
-  const revealedSet = useMemo(() => new Set(revealed), [revealed])
-
-  const reveal = useCallback(
-    (key: string) => {
-      setRevealed((prev) => (prev.includes(key) ? prev : [...prev, key]))
-      confetti({
-        particleCount: 120,
-        spread: 90,
-        startVelocity: 45,
-        origin: { y: 0.6 },
-        colors: ['#ffd166', '#ff6ec4', '#fff5b8', '#c084fc', '#34d399'],
-      })
-    },
-    [setRevealed],
   )
 
   return (
@@ -69,7 +52,7 @@ export function Feed({ earnings }: Props) {
             return revealedSet.has(key) ? (
               <RewardCard key={key} reward={r} isLatest={idx === 0} />
             ) : (
-              <HiddenCard key={key} isLatest={idx === 0} onReveal={() => reveal(key)} />
+              <HiddenCard key={key} isLatest={idx === 0} onReveal={() => onReveal(key)} />
             )
           })}
         </ul>

@@ -1,18 +1,48 @@
+import { useCallback, useMemo } from 'react'
+import confetti from 'canvas-confetti'
 import { Feed } from './components/Feed'
 import { LiveCounter } from './components/LiveCounter'
 import { NextReward } from './components/NextReward'
 import { RainingMoney } from './components/RainingMoney'
 import { ShiftControls } from './components/ShiftControls'
 import { COPY } from './data/copy'
+import { ALL_REWARDS, rewardKey } from './data/rewards'
 import { useDocumentTitle } from './hooks/useDocumentTitle'
+import { useLocalStorage } from './hooks/useLocalStorage'
 import { useShiftTracker } from './hooks/useShiftTracker'
 
 export default function App() {
   const tracker = useShiftTracker()
 
+  const [revealed, setRevealed] = useLocalStorage<string[]>('hctm:revealed', [])
+  const revealedSet = useMemo(() => new Set(revealed), [revealed])
+
+  const reveal = useCallback(
+    (key: string) => {
+      setRevealed((prev) => (prev.includes(key) ? prev : [...prev, key]))
+      confetti({
+        particleCount: 120,
+        spread: 90,
+        startVelocity: 45,
+        origin: { y: 0.6 },
+        colors: ['#ffd166', '#ff6ec4', '#fff5b8', '#c084fc', '#34d399'],
+      })
+    },
+    [setRevealed],
+  )
+
+  const unclaimedCount = useMemo(
+    () =>
+      ALL_REWARDS.filter(
+        (r) => r.thresholdNOK <= tracker.earnings && !revealedSet.has(rewardKey(r)),
+      ).length,
+    [tracker.earnings, revealedSet],
+  )
+
   useDocumentTitle({
     active: !!tracker.activeShift,
     earnings: tracker.earnings,
+    unclaimedCount,
     fallback: `🤑 ${COPY.appTitle}`,
   })
 
@@ -66,7 +96,11 @@ export default function App() {
 
         {tracker.activeShift && (
           <section className="mt-8">
-            <Feed earnings={tracker.earnings} />
+            <Feed
+              earnings={tracker.earnings}
+              revealedSet={revealedSet}
+              onReveal={reveal}
+            />
           </section>
         )}
 
