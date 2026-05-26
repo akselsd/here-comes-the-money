@@ -8,7 +8,7 @@ const fmtCurrency = new Intl.NumberFormat('nb-NO', {
 })
 
 // Maintains document.title:
-// - active with unclaimed (unlocked but unrevealed) rewards: "(N new rewards) - 1 234,56 kr"
+// - active with unclaimed (unlocked but unrevealed) rewards: "N new rewards - 1 234,56 kr"
 // - active with none unclaimed: "1 234,56 kr"
 // - otherwise: the provided fallback title.
 export function useDocumentTitle({
@@ -30,6 +30,6 @@ export function useDocumentTitle({
     const money = fmtCurrency.format(earnings)
     const rewardWord = unclaimedCount === 1 ? 'reward' : 'rewards'
     document.title =
-      unclaimedCount > 0 ? `(${unclaimedCount} new ${rewardWord}) - ${money}` : money
+      unclaimedCount > 0 ? `${unclaimedCount} new ${rewardWord} - ${money}` : money
   }, [active, earnings, unclaimedCount, fallback])
 }
