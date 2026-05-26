@@ -75,6 +75,18 @@ export default function App() {
           <p className="text-center text-white text-2xl font-semibold">Let's goo</p>
         </div>
       </div>
+
+      <button
+        onClick={() => {
+          for (const key of Object.keys(localStorage)) {
+            if (key.startsWith('hctm:')) localStorage.removeItem(key)
+          }
+          location.reload()
+        }}
+        className="fixed bottom-3 right-3 z-30 text-[11px] text-white/20 hover:text-white/60 transition"
+      >
+        Reset
+      </button>
     </main>
   )
 }

@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useCallback, useMemo } from 'react'
 import confetti from 'canvas-confetti'
 import { COPY } from '../data/copy'
 import { ALL_REWARDS, rewardKey } from '../data/rewards'
+import { useLocalStorage } from '../hooks/useLocalStorage'
 import type {
   BuysReward,
   ClipReward,
@@ -34,9 +35,12 @@ export function Feed({ earnings }: Props) {
     [earnings],
   )
 
-  const prevCountRef = useRef(unlocked.length)
-  useEffect(() => {
-    if (unlocked.length > prevCountRef.current) {
+  const [revealed, setRevealed] = useLocalStorage<string[]>('hctm:revealed', [])
+  const revealedSet = useMemo(() => new Set(revealed), [revealed])
+
+  const reveal = useCallback(
+    (key: string) => {
+      setRevealed((prev) => (prev.includes(key) ? prev : [...prev, key]))
       confetti({
         particleCount: 120,
         spread: 90,
@@ -44,9 +48,9 @@ export function Feed({ earnings }: Props) {
         origin: { y: 0.6 },
         colors: ['#ffd166', '#ff6ec4', '#fff5b8', '#c084fc', '#34d399'],
       })
-    }
-    prevCountRef.current = unlocked.length
-  }, [unlocked.length])
+    },
+    [setRevealed],
+  )
 
   return (
     <section className="w-full max-w-2xl mx-auto">
@@ -60,12 +64,41 @@ export function Feed({ earnings }: Props) {
         </div>
       ) : (
         <ul className="space-y-4">
-          {[...unlocked].reverse().map((r, idx) => (
-            <RewardCard key={rewardKey(r)} reward={r} isLatest={idx === 0} />
-          ))}
+          {[...unlocked].reverse().map((r, idx) => {
+            const key = rewardKey(r)
+            return revealedSet.has(key) ? (
+              <RewardCard key={key} reward={r} isLatest={idx === 0} />
+            ) : (
+              <HiddenCard key={key} isLatest={idx === 0} onReveal={() => reveal(key)} />
+            )
+          })}
         </ul>
       )}
     </section>
+  )
+}
+
+function HiddenCard({ isLatest, onReveal }: { isLatest: boolean; onReveal: () => void }) {
+  const latestRing = isLatest ? 'animate-bounce-in ring-2 ring-pink-400/60 shadow-pink-500/20' : ''
+  return (
+    <li>
+      <button
+        onClick={onReveal}
+        className={`w-full text-left bg-black border border-white/25 rounded-2xl px-5 py-6 shadow-xl hover:border-white/50 hover:bg-zinc-950 transition group ${latestRing}`}
+      >
+        <div className="flex items-center justify-between gap-4">
+          <span className="text-lg font-bold text-white flex items-center gap-3">
+            <span className="text-2xl group-hover:scale-110 transition-transform" aria-hidden>
+              🎁
+            </span>
+            New reward unlocked
+          </span>
+          <span className="text-xs uppercase tracking-widest text-white/60 font-semibold whitespace-nowrap">
+            Click to reveal
+          </span>
+        </div>
+      </button>
+    </li>
   )
 }
 
