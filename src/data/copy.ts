@@ -1,17 +1,6 @@
 export const COPY = {
   appTitle: 'Cash money baby!',
   appSubtitle: 'Watch the cash roll in, live.',
-  setup: {
-    heading: 'Setup',
-    name: 'Name (optional)',
-    namePlaceholder: 'ine',
-    hourlyRate: 'Hourly rate (kr)',
-    overtimeMultiplier: 'Overtime bonus (multiplier)',
-    overtimeAfterHours: 'Overtime kicks in after (hours)',
-    save: 'Save',
-    edit: 'Edit settings',
-    cancel: 'Cancel',
-  },
   shift: {
     start: 'Start shift 🚀',
     startNow: '🚀 Start now',
@@ -24,7 +13,6 @@ export const COPY = {
     overtime: 'OVERTIME',
     notStarted: 'No active shift. Hit start when you clock in.',
     backdateError: 'Start time has to be in the past.',
-    greeting: 'Hi',
   },
   feed: {
     heading: 'Rewards',
@@ -32,18 +20,7 @@ export const COPY = {
     nextUnlock: 'Next reward at',
   },
   history: {
-    heading: 'Previous shifts',
-    empty: 'No shifts yet.',
-    clear: 'Clear history',
-    confirmClear: 'Sure you want to delete all history?',
-    totalEarned: 'Total earned',
-    streak: 'Day streak',
-    edit: 'Edit',
     save: 'Save',
     cancel: 'Cancel',
-    delete: 'Delete',
-    confirmDelete: 'Delete this day?',
-    today: 'Today',
-    hoursSuffix: 'h',
   },
 }

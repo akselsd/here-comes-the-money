@@ -1,40 +1,44 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocalStorage } from './useLocalStorage'
-import type { DayEntry, Settings, ShiftSession } from '../types'
+import type { ShiftSession } from '../types'
 
-const DEFAULT_SETTINGS: Settings = {
-  hourlyRateNOK: 400,
-  overtimeMultiplier: 1.5,
-  overtimeAfterHours: 8,
-  name: '',
+const HOURLY_RATE_NOK = 348.56
+const OVERTIME_RATE_NOK = 610.5
+const OVERTIME_AFTER_HOURS = 8
+
+export function computeEarnings(hours: number): number {
+  const regular = Math.min(hours, OVERTIME_AFTER_HOURS)
+  const overtime = Math.max(0, hours - OVERTIME_AFTER_HOURS)
+  return regular * HOURLY_RATE_NOK + overtime * OVERTIME_RATE_NOK
 }
 
-export function computeEarnings(hours: number, s: Settings): number {
-  const regular = Math.min(hours, s.overtimeAfterHours)
-  const overtime = Math.max(0, hours - s.overtimeAfterHours)
-  return regular * s.hourlyRateNOK + overtime * s.hourlyRateNOK * s.overtimeMultiplier
-}
+// The "work day" rolls over at 06:00, not midnight: a shift that runs past
+// midnight still counts toward the day it started, and the counter only resets
+// once she returns after 06:00 the next morning.
+const DAY_RESET_HOUR = 6
 
 export function dayKeyOf(date: Date | string): string {
   const d = typeof date === 'string' ? new Date(date) : date
+  const shifted = new Date(d.getTime() - DAY_RESET_HOUR * 3_600_000)
   const pad = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+  return `${shifted.getFullYear()}-${pad(shifted.getMonth() + 1)}-${pad(shifted.getDate())}`
 }
 
 export function todayKey(): string {
   return dayKeyOf(new Date())
 }
 
+type DayHours = { date: string; hours: number }
+
 export function useShiftTracker() {
-  const [settings, setSettings] = useLocalStorage<Settings>(
-    'hctm:settings',
-    DEFAULT_SETTINGS,
-  )
   const [activeShift, setActiveShift] = useLocalStorage<ShiftSession | null>(
     'hctm:activeShift',
     null,
   )
-  const [days, setDays] = useLocalStorage<DayEntry[]>('hctm:history', [])
+  const [stored, setStored] = useLocalStorage<DayHours>('hctm:today', {
+    date: todayKey(),
+    hours: 0,
+  })
 
   const [now, setNow] = useState<number>(() => Date.now())
   const rafRef = useRef<number | null>(null)
@@ -54,30 +58,39 @@ export function useShiftTracker() {
       rafRef.current = requestAnimationFrame(tick)
     }
     rafRef.current = requestAnimationFrame(tick)
+    // rAF is paused in background tabs; setInterval keeps ticking (throttled to
+    // ~1s) so document.title and other non-visual derivations stay fresh.
+    const intervalId = window.setInterval(() => setNow(Date.now()), 1000)
     return () => {
       mounted = false
       if (rafRef.current != null) cancelAnimationFrame(rafRef.current)
+      window.clearInterval(intervalId)
     }
   }, [activeShift])
 
-  // Running segment is always credited to the day the shift was started on.
-  const activeDayKey = activeShift ? dayKeyOf(activeShift.startedAt) : null
-  const runningHours = activeShift
-    ? Math.max(0, (now - new Date(activeShift.startedAt).getTime()) / 3_600_000)
-    : 0
+  // If the stored day rolls over (returned after the 06:00 reset), drop
+  // yesterday's committed hours.
+  const today = todayKey()
+  const committedToday = stored.date === today ? stored.hours : 0
 
-  const daysByKey = useMemo(() => {
-    const m = new Map<string, number>()
-    for (const d of days) m.set(d.dayKey, d.hoursWorked)
-    return m
-  }, [days])
+  // A shift left running across the 06:00 boundary belongs to a previous work
+  // day; auto-end it so the next morning starts fresh instead of showing a
+  // ballooned overnight total.
+  const shiftStartedToday =
+    activeShift != null && dayKeyOf(activeShift.startedAt) === today
 
-  const committedHoursForActiveDay = activeDayKey
-    ? daysByKey.get(activeDayKey) ?? 0
-    : 0
-  const liveHoursToday = committedHoursForActiveDay + runningHours
-  const earnings = computeEarnings(liveHoursToday, settings)
-  const inOvertime = liveHoursToday > settings.overtimeAfterHours
+  useEffect(() => {
+    if (activeShift && !shiftStartedToday) setActiveShift(null)
+  }, [activeShift, shiftStartedToday, setActiveShift])
+
+  const runningHours =
+    activeShift && shiftStartedToday
+      ? Math.max(0, (now - new Date(activeShift.startedAt).getTime()) / 3_600_000)
+      : 0
+  const liveHoursToday = committedToday + runningHours
+  const earnings = computeEarnings(liveHoursToday)
+  const inOvertime = liveHoursToday > OVERTIME_AFTER_HOURS
+  const effectiveHourlyRate = inOvertime ? OVERTIME_RATE_NOK : HOURLY_RATE_NOK
 
   const startShift = useCallback(
     (startedAt?: Date) => {
@@ -87,88 +100,26 @@ export function useShiftTracker() {
     [setActiveShift],
   )
 
-  // Add hours to the day bucket and clear active state.
-  const commitRunningToDay = useCallback(
-    (extraHours: number, dayKey: string) => {
-      if (extraHours <= 0) return
-      setDays((prev) => {
-        const idx = prev.findIndex((d) => d.dayKey === dayKey)
-        if (idx === -1) {
-          return [{ dayKey, hoursWorked: extraHours }, ...prev].sort((a, b) =>
-            a.dayKey < b.dayKey ? 1 : -1,
-          )
-        }
-        const next = [...prev]
-        next[idx] = { ...next[idx], hoursWorked: next[idx].hoursWorked + extraHours }
-        return next
-      })
-    },
-    [setDays],
-  )
-
-  const stopShift = useCallback(() => {
-    if (!activeShift) return
-    const dayKey = dayKeyOf(activeShift.startedAt)
-    const extra = Math.max(0, (Date.now() - new Date(activeShift.startedAt).getTime()) / 3_600_000)
-    commitRunningToDay(extra, dayKey)
-    setActiveShift(null)
-  }, [activeShift, commitRunningToDay, setActiveShift])
-
-  const setHoursForDay = useCallback(
-    (dayKey: string, newHours: number) => {
+  const setHoursToday = useCallback(
+    (newHours: number) => {
       const clamped = Math.max(0, newHours)
-      // If the active shift belongs to this day, restart the segment from now
-      // so the live counter continues from the new total.
-      if (activeShift && dayKeyOf(activeShift.startedAt) === dayKey) {
+      setStored({ date: todayKey(), hours: clamped })
+      // Restart the running segment from now so the live counter continues
+      // from the new total instead of double-counting.
+      if (activeShift) {
         setActiveShift({ startedAt: new Date().toISOString() })
       }
-      setDays((prev) => {
-        const idx = prev.findIndex((d) => d.dayKey === dayKey)
-        if (idx === -1) {
-          if (clamped === 0) return prev
-          return [{ dayKey, hoursWorked: clamped }, ...prev].sort((a, b) =>
-            a.dayKey < b.dayKey ? 1 : -1,
-          )
-        }
-        if (clamped === 0) return prev.filter((d) => d.dayKey !== dayKey)
-        const next = [...prev]
-        next[idx] = { ...next[idx], hoursWorked: clamped }
-        return next
-      })
     },
-    [activeShift, setActiveShift, setDays],
+    [activeShift, setActiveShift, setStored],
   )
-
-  const deleteDay = useCallback(
-    (dayKey: string) => {
-      // If active shift is for this day, end it.
-      if (activeShift && dayKeyOf(activeShift.startedAt) === dayKey) {
-        setActiveShift(null)
-      }
-      setDays((prev) => prev.filter((d) => d.dayKey !== dayKey))
-    },
-    [activeShift, setActiveShift, setDays],
-  )
-
-  const clearHistory = useCallback(() => {
-    setActiveShift(null)
-    setDays([])
-  }, [setActiveShift, setDays])
 
   return {
-    settings,
-    setSettings,
     activeShift,
-    activeDayKey,
-    days,
     liveHoursToday,
-    runningHours,
     earnings,
     inOvertime,
+    effectiveHourlyRate,
     startShift,
-    stopShift,
-    setHoursForDay,
-    deleteDay,
-    clearHistory,
+    setHoursToday,
   }
 }

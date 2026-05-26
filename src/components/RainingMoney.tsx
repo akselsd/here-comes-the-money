@@ -33,10 +33,23 @@ type Props = {
 export function RainingMoney({ count = 40 }: Props) {
   const bills = useMemo(() => randomBills(count), [count])
 
+  // Cut a transparent band out of the center so falling emoji don't shimmer
+  // through the feed cards. Outside the cutout, rain renders normally; inside,
+  // the mask makes the rain layer fully transparent.
+  const sideMask =
+    'linear-gradient(to right,' +
+    ' black 0,' +
+    ' black calc(50% - 400px),' +
+    ' transparent calc(50% - 340px),' +
+    ' transparent calc(50% + 340px),' +
+    ' black calc(50% + 400px),' +
+    ' black 100%)'
+
   return (
     <div
       aria-hidden
       className="fixed inset-0 pointer-events-none overflow-hidden z-0 select-none"
+      style={{ maskImage: sideMask, WebkitMaskImage: sideMask }}
     >
       {bills.map((b, i) => (
         <span

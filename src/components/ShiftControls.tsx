@@ -5,12 +5,14 @@ type Props =
   | {
       active: true
       hoursToday: number
+      inOvertime: boolean
       onSetHoursToday: (hours: number) => void
       onStart?: never
     }
   | {
       active: false
       hoursToday?: never
+      inOvertime?: never
       onSetHoursToday?: never
       onStart: (startedAt?: Date) => void
     }
@@ -35,9 +37,11 @@ export function ShiftControls(props: Props) {
 
 function ActiveControls({
   hoursToday,
+  inOvertime,
   onSetHoursToday,
 }: {
   hoursToday: number
+  inOvertime: boolean
   onSetHoursToday: (hours: number) => void
 }) {
   const [editing, setEditing] = useState(false)
@@ -54,7 +58,12 @@ function ActiveControls({
   }
 
   return (
-    <div className="flex items-center justify-center">
+    <div className="flex items-stretch justify-center gap-2">
+      {inOvertime && (
+        <span className="inline-flex items-center px-4 rounded-2xl bg-gradient-to-r from-pink-500 to-fuchsia-500 text-white font-extrabold text-sm tracking-widest border-2 border-pink-300 shadow-lg shadow-pink-500/50 animate-pulse-slow uppercase whitespace-nowrap">
+          ⚡ Overtime ⚡
+        </span>
+      )}
       {editing ? (
         <div className="flex items-center gap-2 bg-white/5 border border-pink-400/40 rounded-2xl px-4 py-3">
           <input
@@ -70,7 +79,7 @@ function ActiveControls({
             autoFocus
             className="w-24 bg-black/40 border border-white/20 rounded-lg px-3 py-2 text-2xl text-right tabular-nums focus:border-pink-400 outline-none"
           />
-          <span className="text-xl text-white/70">{COPY.history.hoursSuffix} today</span>
+          <span className="text-xl text-white/70">hours today</span>
           <button
             onClick={save}
             className="ml-2 px-3 py-2 rounded-lg bg-emerald-500/80 hover:bg-emerald-500 text-black font-bold"
@@ -90,17 +99,18 @@ function ActiveControls({
             setDraft(formatHours(hoursToday))
             setEditing(true)
           }}
-          className="group inline-flex items-center gap-3 px-6 py-3 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition"
+          className="group inline-flex items-center gap-2.5 px-4 py-2 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition"
           title="Edit hours"
         >
-          <span className="text-3xl font-extrabold tabular-nums text-white">
+          <span className="text-xl font-extrabold tabular-nums text-white">
             {formatHours(hoursToday)}
           </span>
-          <span className="text-xl text-white/60">
-            {COPY.history.hoursSuffix} today
+          <span className="text-sm text-white/60">
+            hours today
           </span>
-          <span className="text-white/30 group-hover:text-white/70 transition">
-            ✎
+          <span className="inline-flex items-center gap-1.5 ml-0.5 px-2 py-0.5 rounded-full bg-pink-400/15 border border-pink-300/40 text-pink-200 text-xs font-semibold group-hover:bg-pink-400/25 group-hover:border-pink-300/60 transition">
+            <span aria-hidden>✎</span>
+            <span>Edit</span>
           </span>
         </button>
       )}

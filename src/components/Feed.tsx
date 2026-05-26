@@ -1,10 +1,15 @@
 import { useEffect, useMemo, useRef } from 'react'
 import confetti from 'canvas-confetti'
 import { COPY } from '../data/copy'
-import { BUYS } from '../data/buys'
-import { NOTES } from '../data/notes'
-import { VIDEOS } from '../data/videos'
-import type { BuysReward, NoteReward, Reward, VideoReward } from '../types'
+import { ALL_REWARDS, rewardKey } from '../data/rewards'
+import type {
+  BuysReward,
+  ClipReward,
+  GifReward,
+  NoteReward,
+  Reward,
+  VideoReward,
+} from '../types'
 
 const fmtNOK = new Intl.NumberFormat('nb-NO', {
   style: 'currency',
@@ -19,22 +24,6 @@ const fmtNOKDecimals = new Intl.NumberFormat('nb-NO', {
   minimumFractionDigits: 0,
 })
 
-// One unified, sorted reward stream.
-const ALL_REWARDS: Reward[] = [...VIDEOS, ...BUYS, ...NOTES].sort(
-  (a, b) => a.thresholdNOK - b.thresholdNOK,
-)
-
-function rewardKey(r: Reward): string {
-  switch (r.kind) {
-    case 'video':
-      return `v:${r.youtubeId}`
-    case 'buys':
-      return `b:${r.thresholdNOK}:${r.item}`
-    case 'note':
-      return `n:${r.thresholdNOK}:${r.text.slice(0, 24)}`
-  }
-}
-
 type Props = {
   earnings: number
 }
@@ -44,7 +33,6 @@ export function Feed({ earnings }: Props) {
     () => ALL_REWARDS.filter((r) => r.thresholdNOK <= earnings),
     [earnings],
   )
-  const next = ALL_REWARDS.find((r) => r.thresholdNOK > earnings)
 
   const prevCountRef = useRef(unlocked.length)
   useEffect(() => {
@@ -64,14 +52,6 @@ export function Feed({ earnings }: Props) {
     <section className="w-full max-w-2xl mx-auto">
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 mb-4 px-1">
         <h2 className="text-2xl font-bold">{COPY.feed.heading}</h2>
-        {next && (
-          <span className="text-sm text-white/60">
-            {COPY.feed.nextUnlock}{' '}
-            <span className="text-pink-300 font-semibold">
-              {fmtNOKDecimals.format(next.thresholdNOK)}
-            </span>
-          </span>
-        )}
       </div>
 
       {unlocked.length === 0 ? (
@@ -98,17 +78,102 @@ function RewardCard({ reward, isLatest }: { reward: Reward; isLatest: boolean })
       return <BuysCard reward={reward} latestRing={latestRing} />
     case 'note':
       return <NoteCard reward={reward} latestRing={latestRing} />
+    case 'gif':
+      return <GifCard reward={reward} latestRing={latestRing} />
+    case 'clip':
+      return <ClipCard reward={reward} latestRing={latestRing} />
   }
+}
+
+function ClipCard({ reward, latestRing }: { reward: ClipReward; latestRing: string }) {
+  return (
+    <li
+      className={`bg-gradient-to-r from-emerald-500/10 to-lime-500/10 border border-emerald-300/20 rounded-2xl overflow-hidden shadow-xl ${latestRing}`}
+    >
+      <div className="px-5 py-4 flex items-center gap-4">
+        <span className="text-4xl" aria-hidden>
+          🎬
+        </span>
+        <div className="flex-1 min-w-0">
+          <div className="text-xs uppercase tracking-wider text-emerald-200/70 font-semibold">
+            Clip unlocked
+          </div>
+          {reward.caption && (
+            <div className="text-lg font-bold text-emerald-100 leading-tight">
+              {reward.caption}
+            </div>
+          )}
+        </div>
+        <span className="font-bold text-emerald-200 whitespace-nowrap tabular-nums">
+          {fmtNOK.format(reward.thresholdNOK)}
+        </span>
+      </div>
+      <div className="bg-black flex items-center justify-center">
+        <video
+          src={reward.src}
+          className="max-h-[480px] w-auto"
+          controls
+          playsInline
+          preload="metadata"
+        />
+      </div>
+    </li>
+  )
+}
+
+function GifCard({ reward, latestRing }: { reward: GifReward; latestRing: string }) {
+  return (
+    <li
+      className={`bg-gradient-to-r from-emerald-500/10 to-lime-500/10 border border-emerald-300/20 rounded-2xl overflow-hidden shadow-xl ${latestRing}`}
+    >
+      <div className="px-5 py-4 flex items-center gap-4">
+        <span className="text-4xl" aria-hidden>
+          💸
+        </span>
+        <div className="flex-1 min-w-0">
+          <div className="text-xs uppercase tracking-wider text-emerald-200/70 font-semibold">
+            Money mood unlocked
+          </div>
+          {reward.caption && (
+            <div className="text-lg font-bold text-emerald-100 leading-tight">
+              {reward.caption}
+            </div>
+          )}
+        </div>
+        <span className="font-bold text-emerald-200 whitespace-nowrap tabular-nums">
+          {fmtNOK.format(reward.thresholdNOK)}
+        </span>
+      </div>
+      <div className="bg-black flex items-center justify-center">
+        <img
+          src={reward.src}
+          alt={reward.caption ?? 'Money gif'}
+          className="max-h-80 w-auto"
+          loading="lazy"
+        />
+      </div>
+    </li>
+  )
 }
 
 function VideoCard({ reward, latestRing }: { reward: VideoReward; latestRing: string }) {
   return (
     <li
-      className={`bg-white/5 border border-white/10 rounded-2xl overflow-hidden shadow-xl ${latestRing}`}
+      className={`bg-gradient-to-r from-pink-500/10 to-fuchsia-500/10 border border-pink-300/20 rounded-2xl overflow-hidden shadow-xl ${latestRing}`}
     >
-      <div className="px-4 py-3 flex items-center justify-between gap-3 bg-gradient-to-r from-pink-500/20 to-fuchsia-500/10">
-        <span className="font-bold text-pink-200">{fmtNOK.format(reward.thresholdNOK)}</span>
-        <span className="text-sm text-white/80 text-right">{reward.caption}</span>
+      <div className="px-5 py-4 flex items-center gap-4">
+        <span className="text-4xl" aria-hidden>
+          {reward.emoji ?? '🎵'}
+        </span>
+        <div className="flex-1 min-w-0">
+          <div className="text-xs uppercase tracking-wider text-pink-200/70 font-semibold">
+            {reward.label ?? 'New track unlocked'}
+          </div>
+          <div className="text-lg font-bold text-pink-100 leading-tight">{reward.caption}</div>
+        </div>
+        <span className="font-bold text-pink-200 whitespace-nowrap tabular-nums">
+          {fmtNOK.format(reward.thresholdNOK)}
+        </span>
       </div>
       <div className="aspect-video bg-black">
         <iframe
@@ -161,6 +226,9 @@ function NoteCard({ reward, latestRing }: { reward: NoteReward; latestRing: stri
         )}
         <div className="flex-1 min-w-0">
           <p className="text-white/90 italic leading-snug">{reward.text}</p>
+          {reward.attribution && (
+            <p className="text-white/70 mt-1 leading-snug">— {reward.attribution}</p>
+          )}
           <div className="mt-2 flex items-center justify-between gap-2 text-xs">
             <span className="text-white/40">
               {reward.source ? `Source: ${reward.source}` : ' '}
