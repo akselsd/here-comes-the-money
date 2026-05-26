@@ -17,8 +17,25 @@ export type DayEntry = {
   hoursWorked: number
 }
 
-export type Video = {
-  thresholdNOK: number
+type RewardBase = { thresholdNOK: number }
+
+export type VideoReward = RewardBase & {
+  kind: 'video'
   youtubeId: string
   caption: string
 }
+
+export type NoteReward = RewardBase & {
+  kind: 'note'
+  text: string
+  emoji?: string
+  source?: string
+}
+
+export type BuysReward = RewardBase & {
+  kind: 'buys'
+  item: string
+  emoji: string
+}
+
+export type Reward = VideoReward | NoteReward | BuysReward
