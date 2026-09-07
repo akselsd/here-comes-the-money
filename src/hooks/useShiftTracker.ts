@@ -28,7 +28,7 @@ export function todayKey(): string {
   return dayKeyOf(new Date())
 }
 
-type DayHours = { date: string; hours: number }
+type DayHours = { date: string; hours: number; breakHours: number }
 
 export function useShiftTracker() {
   const [activeShift, setActiveShift] = useLocalStorage<ShiftSession | null>(
@@ -38,6 +38,7 @@ export function useShiftTracker() {
   const [stored, setStored] = useLocalStorage<DayHours>('hctm:today', {
     date: todayKey(),
     hours: 0,
+    breakHours: 0,
   })
 
   const [now, setNow] = useState<number>(() => Date.now())
@@ -72,6 +73,7 @@ export function useShiftTracker() {
   // yesterday's committed hours.
   const today = todayKey()
   const committedToday = stored.date === today ? stored.hours : 0
+  const committedBreakToday = stored.date === today ? stored.breakHours : 0
 
   // A shift left running across the 06:00 boundary belongs to a previous work
   // day; auto-end it so the next morning starts fresh instead of showing a
@@ -83,11 +85,16 @@ export function useShiftTracker() {
     if (activeShift && !shiftStartedToday) setActiveShift(null)
   }, [activeShift, shiftStartedToday, setActiveShift])
 
-  const runningHours =
+  const onBreak = !!activeShift && shiftStartedToday && activeShift.onBreak
+  const runningSegmentHours =
     activeShift && shiftStartedToday
       ? Math.max(0, (now - new Date(activeShift.startedAt).getTime()) / 3_600_000)
       : 0
-  const liveHoursToday = committedToday + runningHours
+  const runningWorkHours = onBreak ? 0 : runningSegmentHours
+  const runningBreakHours = onBreak ? runningSegmentHours : 0
+
+  const liveHoursToday = committedToday + runningWorkHours
+  const liveBreakHoursToday = committedBreakToday + runningBreakHours
   const earnings = computeEarnings(liveHoursToday)
   const inOvertime = liveHoursToday > OVERTIME_AFTER_HOURS
   const effectiveHourlyRate = inOvertime ? OVERTIME_RATE_NOK : HOURLY_RATE_NOK
@@ -95,19 +102,65 @@ export function useShiftTracker() {
   const startShift = useCallback(
     (startedAt?: Date) => {
       const when = startedAt ?? new Date()
-      setActiveShift({ startedAt: when.toISOString() })
+      setActiveShift({ startedAt: when.toISOString(), onBreak: false })
     },
     [setActiveShift],
   )
 
+  const startBreak = useCallback(() => {
+    if (!activeShift || activeShift.onBreak) return
+    // Commit the elapsed work segment before switching to a break segment.
+    setStored((prev) => ({
+      date: todayKey(),
+      hours: (prev.date === todayKey() ? prev.hours : 0) + runningWorkHours,
+      breakHours: prev.date === todayKey() ? prev.breakHours : 0,
+    }))
+    setActiveShift({ startedAt: new Date().toISOString(), onBreak: true })
+  }, [activeShift, runningWorkHours, setActiveShift, setStored])
+
+  const endBreak = useCallback(() => {
+    if (!activeShift || !activeShift.onBreak) return
+    // Commit the elapsed break segment before switching back to work.
+    setStored((prev) => ({
+      date: todayKey(),
+      hours: prev.date === todayKey() ? prev.hours : 0,
+      breakHours:
+        (prev.date === todayKey() ? prev.breakHours : 0) + runningBreakHours,
+    }))
+    setActiveShift({ startedAt: new Date().toISOString(), onBreak: false })
+  }, [activeShift, runningBreakHours, setActiveShift, setStored])
+
   const setHoursToday = useCallback(
     (newHours: number) => {
       const clamped = Math.max(0, newHours)
-      setStored({ date: todayKey(), hours: clamped })
-      // Restart the running segment from now so the live counter continues
-      // from the new total instead of double-counting.
-      if (activeShift) {
-        setActiveShift({ startedAt: new Date().toISOString() })
+      setStored((prev) => ({
+        date: todayKey(),
+        hours: clamped,
+        breakHours: prev.date === todayKey() ? prev.breakHours : 0,
+      }))
+      // Restart the running work segment from now so the live counter
+      // continues from the new total instead of double-counting. Leave a
+      // running break segment untouched.
+      if (activeShift && !activeShift.onBreak) {
+        setActiveShift({ startedAt: new Date().toISOString(), onBreak: false })
+      }
+    },
+    [activeShift, setActiveShift, setStored],
+  )
+
+  const setBreakHoursToday = useCallback(
+    (newHours: number) => {
+      const clamped = Math.max(0, newHours)
+      setStored((prev) => ({
+        date: todayKey(),
+        hours: prev.date === todayKey() ? prev.hours : 0,
+        breakHours: clamped,
+      }))
+      // Restart the running break segment from now so it continues from the
+      // new total instead of double-counting. Leave a running work segment
+      // untouched.
+      if (activeShift && activeShift.onBreak) {
+        setActiveShift({ startedAt: new Date().toISOString(), onBreak: true })
       }
     },
     [activeShift, setActiveShift, setStored],
@@ -115,11 +168,16 @@ export function useShiftTracker() {
 
   return {
     activeShift,
+    onBreak,
     liveHoursToday,
+    liveBreakHoursToday,
     earnings,
     inOvertime,
     effectiveHourlyRate,
     startShift,
+    startBreak,
+    endBreak,
     setHoursToday,
+    setBreakHoursToday,
   }
 }

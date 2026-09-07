@@ -1,7 +1,10 @@
 // While a shift is active, this records when the current segment started.
-// Running time always counts toward `dayKey(startedAt)`.
+// Running time always counts toward `dayKey(startedAt)`. The segment is
+// either worked time (onBreak: false) or break time (onBreak: true) —
+// never both, and switching between them commits the elapsed segment.
 export type ShiftSession = {
   startedAt: string // ISO
+  onBreak: boolean
 }
 
 type RewardBase = { thresholdNOK: number }

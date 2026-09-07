@@ -48,7 +48,7 @@ export default function App() {
 
   return (
     <main className="min-h-svh pb-20 relative isolate">
-      {tracker.activeShift && <RainingMoney />}
+      {tracker.activeShift && !tracker.onBreak && <RainingMoney />}
 
       <div className="relative z-10 mx-auto max-w-2xl px-4">
         {/* Sticky top: counter + hours pill. Stays visible as the feed scrolls. */}
@@ -63,7 +63,7 @@ export default function App() {
             <LiveCounter
               earnings={tracker.earnings}
               inOvertime={tracker.inOvertime}
-              active
+              active={!tracker.onBreak}
             />
           ) : (
             <div className="text-center text-white/50 max-w-md mx-auto py-10 px-6 bg-white/5 rounded-2xl border border-white/10">
@@ -78,6 +78,11 @@ export default function App() {
                 hoursToday={tracker.liveHoursToday}
                 inOvertime={tracker.inOvertime}
                 onSetHoursToday={tracker.setHoursToday}
+                onBreak={tracker.onBreak}
+                breakHoursToday={tracker.liveBreakHoursToday}
+                onStartBreak={tracker.startBreak}
+                onEndBreak={tracker.endBreak}
+                onSetBreakHoursToday={tracker.setBreakHoursToday}
               />
             ) : (
               <ShiftControls active={false} onStart={tracker.startShift} />

@@ -14,6 +14,13 @@ export const COPY = {
     notStarted: 'No active shift. Hit start when you clock in.',
     backdateError: 'Start time has to be in the past.',
   },
+  break: {
+    start: '☕ Take a break',
+    end: '▶️ Back to work',
+    onBreak: 'On break',
+    breakTime: 'break time',
+    editTitle: 'Edit break time',
+  },
   feed: {
     heading: 'Rewards',
     empty: 'Rewards drop in as you earn more. Hang in there! ✨',
